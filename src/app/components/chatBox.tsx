@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 
 interface Message {
-  role: "user" | "assistant";
+  role: "User" | "Assistant";
   content: string;
 }
 
@@ -28,9 +28,8 @@ export default function ChatBox({ videoData }: ChatBoxProps) {
     e.preventDefault();
     if (!inputMessage.trim() || isLoading) return;
 
-    // Add user message to chat
     const newMessage: Message = {
-      role: "user",
+      role: "User",
       content: inputMessage,
     };
     setMessages((prev) => [...prev, newMessage]);
@@ -39,9 +38,8 @@ export default function ChatBox({ videoData }: ChatBoxProps) {
 
     try {
       // TODO: Add API call to chat endpoint
-      // For now, just echo the message
       const response: Message = {
-        role: "assistant",
+        role: "Assistant",
         content: `I received your message: "${inputMessage}". I have access to the video transcript with ${videoData.subtitles.length} entries.`,
       };
       setMessages((prev) => [...prev, response]);
@@ -50,7 +48,7 @@ export default function ChatBox({ videoData }: ChatBoxProps) {
       setMessages((prev) => [
         ...prev,
         {
-          role: "assistant",
+          role: "Assistant",
           content: "Sorry, I encountered an error processing your message.",
         },
       ]);
@@ -61,18 +59,17 @@ export default function ChatBox({ videoData }: ChatBoxProps) {
 
   return (
     <div className="flex flex-col h-[600px] w-full max-w-2xl mx-auto bg-white rounded-lg shadow-lg">
-      {/* Chat messages container */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message, index) => (
           <div
             key={index}
             className={`flex ${
-              message.role === "user" ? "justify-end" : "justify-start"
+              message.role === "User" ? "justify-end" : "justify-start"
             }`}
           >
             <div
               className={`max-w-[80%] rounded-lg p-3 ${
-                message.role === "user"
+                message.role === "User"
                   ? "bg-blue-500 text-white"
                   : "bg-gray-100 text-gray-800"
               }`}
@@ -90,7 +87,6 @@ export default function ChatBox({ videoData }: ChatBoxProps) {
         )}
       </div>
 
-      {/* Input form */}
       <form onSubmit={handleSubmit} className="border-t p-4">
         <div className="flex space-x-2">
           <input

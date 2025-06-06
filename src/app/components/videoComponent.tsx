@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import ChatBox from "./ChatBox";
+import ChatBox from "./chatBox";
 
 type Props = {
   videoUrl: string;

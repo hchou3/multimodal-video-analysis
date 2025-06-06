@@ -4,9 +4,10 @@ const FASTAPI_URL = process.env.FASTAPI_URL || "http://localhost:8000";
 
 export async function POST(request: Request) {
   try {
+    console.log(request.url);
     const body = await request.json();
 
-    const response = await fetch(`${FASTAPI_URL}/embed`, {
+    const response = await fetch(`${FASTAPI_URL}/generate-transcript`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

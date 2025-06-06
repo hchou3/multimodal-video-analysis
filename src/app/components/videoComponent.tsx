@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import ChatBox from "./ChatBox";
 
 type Props = {
   videoUrl: string;
@@ -7,7 +8,7 @@ type Props = {
 };
 
 type VideoSubtitles = {
-  video_url: string;
+  video_id: string;
   subtitles: Array<{
     timestamp: string;
     text: string;
@@ -30,21 +31,25 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
       if (!videoId) {
         throw new Error("Invalid video URL");
       }
-      const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-      const response = await fetch("/api/embed", {
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+      if (!apiKey) {
+        throw new Error("Google API key not found");
+      }
+
+      const response = await fetch("/api/generate-transcript", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          video_url: watchUrl,
+          video_id: videoId,
+          api_key: apiKey,
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to process video");
+        throw new Error(`FastAPI responded with status: ${response.status}`);
       }
 
       const data = await response.json();
@@ -74,7 +79,6 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
           src={videoUrl}
           title="Video Preview"
           className="w-full h-full rounded-lg"
-          frameBorder="0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
         />
@@ -118,6 +122,11 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
           Upload a different link
         </button>
       </div>
+      {isProcessed && subtitles && (
+        <div className="mt-8">
+          <ChatBox videoData={subtitles} />
+        </div>
+      )}
     </div>
   );
 }

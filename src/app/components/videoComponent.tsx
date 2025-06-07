@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import ChatBox from "./chatBox";
+import { supabase, VideoChunk, insertVideoChunk } from "@/app/db/db";
 
 type Props = {
   videoUrl: string;
@@ -37,6 +38,12 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
         throw new Error("Google API key not found");
       }
 
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error("Supabase credentials not found");
+      }
+
       const response = await fetch("/api/generate-transcript", {
         method: "POST",
         headers: {
@@ -57,6 +64,7 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
       setIsProcessed(true);
 
       console.log("Video processed successfully:", data);
+      insertVideoChunk({ video_id: videoId, transcript: "", embedding: [] });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to process video");
       setIsProcessed(false);

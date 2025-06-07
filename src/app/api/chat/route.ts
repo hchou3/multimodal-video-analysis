@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const response = await fetch(`${FASTAPI_URL}/generate-transcript`, {
+    const response = await fetch(`${FASTAPI_URL}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -23,9 +23,9 @@ export async function POST(request: Request) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Error in embed API route:", error);
+    console.error("Error in chat API route:", error);
     return NextResponse.json(
-      { error: "Failed to generate transcript and embeddings" },
+      { error: "Failed to process chat request" },
       { status: 500 }
     );
   }

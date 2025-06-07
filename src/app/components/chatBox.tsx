@@ -37,12 +37,35 @@ export default function ChatBox({ videoData }: ChatBoxProps) {
     setIsLoading(true);
 
     try {
-      // TODO: Add API call to chat endpoint
-      const response: Message = {
-        role: "Assistant",
-        content: `I received your message: "${inputMessage}". I have access to the video transcript with ${videoData.subtitles.length} entries.`,
-      };
-      setMessages((prev) => [...prev, response]);
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error("Supabase credentials not found");
+      }
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          role: "User",
+          content: inputMessage,
+          video_id: videoData.video_id,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error("FastAPI responded with an error: " + response.status);
+      }
+
+      const data = await response.json();
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "Assistant",
+          content: data.content,
+        },
+      ]);
     } catch (error) {
       console.error("Error in chat:", error);
       setMessages((prev) => [

@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import ChatBox from "./chatBox";
-import { supabase, VideoChunk, insertVideoChunk } from "@/app/db/db";
+import { supabaseKey, supabaseUrl, insertVideoChunk } from "@/app/db/db";
 
 type Props = {
   videoUrl: string;
@@ -13,22 +13,32 @@ type VideoSubtitles = {
   subtitles: Array<{
     timestamp: string;
     text: string;
-    embedding: number[];
   }>;
 };
+
+function formatTimestamp(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes.toString().padStart(2, "0")}:${seconds
+    .toString()
+    .padStart(2, "0")}`;
+}
 
 export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
   const [isProcessed, setIsProcessed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [subtitles, setSubtitles] = useState<VideoSubtitles | null>(null);
+  const [videoID, setvideoID] = useState<string | null>(null);
 
   const handleProcess = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const videoId = videoUrl.split("/").pop()?.split("?")[0];
+      const videoId = videoUrl.split("/").pop()?.split("?")[0] || "";
+      setvideoID(videoId);
       if (!videoId) {
         throw new Error("Invalid video URL");
       }
@@ -38,8 +48,11 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
         throw new Error("Google API key not found");
       }
 
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
+      const openai_key = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+      if (!openai_key) {
+        throw new Error("OpenAI API key not found");
+      }
+
       if (!supabaseUrl || !supabaseKey) {
         throw new Error("Supabase credentials not found");
       }
@@ -52,6 +65,7 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
         body: JSON.stringify({
           video_id: videoId,
           api_key: apiKey,
+          openai_key: openai_key,
         }),
       });
 
@@ -60,11 +74,47 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
       }
 
       const data = await response.json();
-      setSubtitles(data);
+
+      const subtitle_chunks = {
+        video_id: data.video_id,
+        subtitles: data.chunks.map((chunk: any) => ({
+          timestamp: formatTimestamp(chunk.timestamp_ms),
+          text: chunk.summary,
+        })),
+      };
+
+      setSubtitles(subtitle_chunks);
       setIsProcessed(true);
 
-      console.log("Video processed successfully:", data);
-      insertVideoChunk({ video_id: videoId, transcript: "", embedding: [] });
+      console.log("Video processed successfully:", subtitle_chunks);
+
+      //Convert from List[List[Float]] to List[str]
+      const embeddings = data.chunks.map((chunk: any) => {
+        const numericalEmbedding = Array.isArray(chunk.embedding)
+          ? chunk.embedding.map((val: any) => Number(val))
+          : [];
+        return `[${numericalEmbedding.join(",")}]`;
+      });
+
+      console.log("Video embeddings:", embeddings);
+
+      console.log("Attempting to insert video chunk with data:", {
+        video_id: videoId,
+        transcript: JSON.stringify(subtitle_chunks.subtitles),
+        embedding: embeddings,
+      });
+
+      try {
+        const result = await insertVideoChunk({
+          video_id: videoId,
+          transcript: JSON.stringify(subtitle_chunks.subtitles),
+          embedding: embeddings,
+        });
+        console.log("Video chunk insertion result:", result);
+      } catch (error) {
+        console.error("Error inserting video chunk:", error);
+        throw error;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to process video");
       setIsProcessed(false);
@@ -75,6 +125,7 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
 
   const handleBack = () => {
     setIsProcessed(false);
+    setvideoID("");
     setError(null);
     setSubtitles(null);
     onBack();
@@ -132,7 +183,7 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
       </div>
       {isProcessed && subtitles && (
         <div className="mt-8">
-          <ChatBox videoData={subtitles} />
+          <ChatBox videoData={subtitles} video_id={videoID ?? ""} />
         </div>
       )}
     </div>

@@ -86,6 +86,15 @@ def parse_video_response(raw_response_text: str) -> list:
         print(f"Cleaned text: {cleaned_text}")
         raise ValueError(f"Invalid JSON format: {str(e)}")
 
+def timestamp_to_ms(timestamp_str: str) -> int:
+    """Convert timestamp string in format 'MM:SS' to milliseconds."""
+    try:
+        minutes, seconds = map(int, timestamp_str.split(':'))
+        return (minutes * 60 + seconds) * 1000
+    except Exception as e:
+        print(f"Error converting timestamp {timestamp_str}: {str(e)}")
+        return 0
+
 @app.post("/chat")
 async def chat_with_video(request: ChatRequest):
     try:
@@ -126,7 +135,7 @@ Your task is to:
 1. Use ONLY the provided context to answer the question
 2. If the context doesn't contain relevant information, say "I don't have enough information to answer that question based on the video content."
 3. If you find relevant information, provide a clear and concise answer, referencing specific timestamps when relevant.
-4. Format timestamps as [mm:ss] when mentioning them.
+4. Format timestamps as [mm:ss] when mentioning them. DO NOT include any HTML tags or links in your response.
 
 Your response:"""
 
@@ -137,22 +146,12 @@ Your response:"""
             )
         )
 
+        # Return the raw response text without any HTML formatting
         return {"content": response.text}
     
     except Exception as e:
         print(f"Error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to process chat request: {str(e)}")
-
-#Convert timestamp string to milliseconds
-def timestamp_to_ms(timestamp_str: str) -> int:
-    """Convert timestamp string in format 'MM:SS-MM:SS' to milliseconds."""
-    try:
-        start_time = timestamp_str.split('-')[0]
-        minutes, seconds = map(int, start_time.split(':'))
-        return (minutes * 60 + seconds) * 1000
-    except Exception as e:
-        print(f"Error converting timestamp {timestamp_str}: {str(e)}")
-        return 0
 
 @app.post("/generate-transcript")
 async def process_video(request: VideoRequest):

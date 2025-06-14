@@ -6,6 +6,7 @@ import {
   getVideoChunksByVideoId,
   VideoChunk,
 } from "@/app/db/db";
+import { parseMessageWithTimestamps } from "./TimestampLink";
 
 interface Message {
   role: "User" | "Assistant";
@@ -23,9 +24,14 @@ interface VideoSubtitles {
 interface ChatBoxProps {
   videoData: VideoSubtitles;
   video_id: string | "";
+  onTimestampClick: (timestamp: string) => void;
 }
 
-export default function ChatBox({ videoData, video_id }: ChatBoxProps) {
+export default function ChatBox({
+  videoData,
+  video_id,
+  onTimestampClick,
+}: ChatBoxProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -184,7 +190,7 @@ export default function ChatBox({ videoData, video_id }: ChatBoxProps) {
   };
 
   return (
-    <div className="flex flex-col h-[600px] w-full max-w-2xl mx-auto bg-white rounded-lg shadow-lg">
+    <div className="flex flex-col h-[600px] w-full bg-gray-800 rounded-lg shadow-lg">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message, index) => (
           <div
@@ -196,38 +202,40 @@ export default function ChatBox({ videoData, video_id }: ChatBoxProps) {
             <div
               className={`max-w-[80%] rounded-lg p-3 ${
                 message.role === "User"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 text-gray-800"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-700 text-gray-200"
               }`}
             >
-              {message.content}
+              {message.role === "Assistant"
+                ? parseMessageWithTimestamps(message.content, onTimestampClick)
+                : message.content}
             </div>
           </div>
         ))}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 text-gray-800 rounded-lg p-3">
+            <div className="bg-gray-700 text-gray-200 rounded-lg p-3">
               Thinking...
             </div>
           </div>
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="border-t p-4">
+      <form onSubmit={handleSubmit} className="p-4 border-t border-gray-700">
         <div className="flex space-x-2">
           <input
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             placeholder="Ask about the video..."
-            className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 p-3 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white placeholder-gray-400"
             disabled={isLoading}
           />
           <button
             type="submit"
             disabled={isLoading}
-            className={`px-4 py-2 bg-blue-500 text-white rounded-lg transition-colors ${
-              isLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-600"
+            className={`px-6 py-3 bg-blue-600 text-white rounded-lg transition-colors ${
+              isLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
             }`}
           >
             Send

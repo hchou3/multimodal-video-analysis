@@ -1,7 +1,12 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import ChatBox from "./chatBox";
-import { supabaseKey, supabaseUrl, insertVideoChunk } from "@/app/db/db";
+import {
+  supabaseKey,
+  supabaseUrl,
+  insertVideoChunk,
+  getVideoChunksByVideoId,
+} from "@/app/db/db";
 
 type Props = {
   videoUrl: string;
@@ -31,6 +36,24 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [subtitles, setSubtitles] = useState<VideoSubtitles | null>(null);
   const [videoID, setvideoID] = useState<string | null>(null);
+  const playerRef = useRef<HTMLIFrameElement>(null);
+
+  const seekToTimestamp = useCallback((timestamp: string) => {
+    if (!playerRef.current) return;
+
+    const [minutes, seconds] = timestamp.split(":").map(Number);
+    const totalSeconds = minutes * 60 + seconds;
+
+    // YouTube iframe API method to seek to time
+    playerRef.current.contentWindow?.postMessage(
+      JSON.stringify({
+        event: "command",
+        func: "seekTo",
+        args: [totalSeconds, true],
+      }),
+      "*"
+    );
+  }, []);
 
   const handleProcess = async () => {
     try {
@@ -41,6 +64,26 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
       setvideoID(videoId);
       if (!videoId) {
         throw new Error("Invalid video URL");
+      }
+
+      // First check if video already exists in database
+      try {
+        const existingChunks = await getVideoChunksByVideoId(videoId);
+        if (existingChunks && existingChunks.length > 0) {
+          // Video already exists, use the stored data
+          const storedData = existingChunks[0];
+          const subtitle_chunks = {
+            video_id: videoId,
+            subtitles: JSON.parse(storedData.transcript || "[]"),
+          };
+          setSubtitles(subtitle_chunks);
+          setIsProcessed(true);
+          setIsLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.error("Error checking for existing video:", err);
+        // Continue with processing if there's an error checking the database
       }
 
       const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
@@ -132,24 +175,25 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
   };
 
   return (
-    <div className="text-center">
-      <div className="aspect-video max-w-3xl mx-auto mb-4">
+    <div className="flex flex-col items-center max-w-4xl mx-auto">
+      <div className="aspect-video w-full max-w-3xl mb-8">
         <iframe
-          src={videoUrl}
+          ref={playerRef}
+          src={`${videoUrl}?enablejsapi=1`}
           title="Video Preview"
-          className="w-full h-full rounded-lg"
+          className="w-full h-full rounded-lg shadow-lg"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
         />
       </div>
-      {error && <div className="text-red-600 mb-4">{error}</div>}
+      {error && <div className="text-red-400 mb-4">{error}</div>}
       {subtitles && (
-        <div className="max-w-3xl mx-auto mb-4 text-left p-4 bg-gray-50 rounded-lg">
-          <h3 className="font-semibold mb-2">Video Subtitles:</h3>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
+        <div className="w-full max-w-3xl mb-8 text-left p-6 bg-gray-800 rounded-lg shadow-lg">
+          <h3 className="font-semibold mb-4 text-gray-200">Video Subtitles:</h3>
+          <div className="space-y-3 max-h-96 overflow-y-auto text-gray-300">
             {subtitles.subtitles.map((entry, index) => (
-              <div key={index} className="flex gap-2">
-                <span className="font-mono text-gray-600 whitespace-nowrap">
+              <div key={index} className="flex gap-3">
+                <span className="font-mono text-gray-400 whitespace-nowrap">
                   {entry.timestamp}
                 </span>
                 <span className="flex-1">{entry.text}</span>
@@ -158,13 +202,13 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
           </div>
         </div>
       )}
-      <div className="space-x-4">
+      <div className="space-x-4 mb-8">
         <button
           onClick={handleProcess}
           disabled={isProcessed || isLoading}
-          className={`px-4 py-2 rounded-lg transition ${
+          className={`px-6 py-2 rounded-lg transition ${
             isProcessed || isLoading
-              ? "bg-gray-300 text-gray-500 cursor-not-allowed opacity-50"
+              ? "bg-gray-700 text-gray-400 cursor-not-allowed opacity-50"
               : "bg-green-600 text-white hover:bg-green-700"
           }`}
         >
@@ -176,14 +220,18 @@ export default function VideoLinkPreview({ videoUrl, onBack }: Props) {
         </button>
         <button
           onClick={handleBack}
-          className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition"
+          className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition"
         >
           Upload a different link
         </button>
       </div>
       {isProcessed && subtitles && (
-        <div className="mt-8">
-          <ChatBox videoData={subtitles} video_id={videoID ?? ""} />
+        <div className="w-full max-w-3xl">
+          <ChatBox
+            videoData={subtitles}
+            video_id={videoID ?? ""}
+            onTimestampClick={seekToTimestamp}
+          />
         </div>
       )}
     </div>
